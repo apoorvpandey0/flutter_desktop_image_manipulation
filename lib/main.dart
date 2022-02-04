@@ -4,6 +4,7 @@ import 'dart:typed_data';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:image_compression/image_compression.dart';
 
 void main() {
   runApp(const MyApp());
@@ -26,15 +27,47 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  Uint8List file = Uint8List(0);
+  PlatformFile? file;
+  ImageFile? cfile;
   bool picked = false;
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      floatingActionButton: FloatingActionButton(onPressed: () async {
-        await pickUpFile();
-      }),
-      body: picked ? Image.memory(file) : Text("No file picked"),
+      floatingActionButton: Row(
+        mainAxisAlignment: MainAxisAlignment.end,
+        children: [
+          FloatingActionButton(onPressed: () async {
+            await pickUpFile();
+          }),
+          FloatingActionButton(
+              backgroundColor: Colors.green,
+              onPressed: () async {
+                await compressImage();
+              }),
+        ],
+      ),
+      body: Column(
+        children: [
+          file != null
+              ? Column(
+                  children: [
+                    Image.memory(file!.bytes!),
+                    // Text(file!.name),
+                    Text((file!.size / 1024).toStringAsFixed(2) + " KB"),
+                  ],
+                )
+              : Text("No file picked"),
+          cfile != null
+              ? Column(
+                  children: [
+                    Image.memory(cfile!.rawBytes),
+                    Text(
+                        (cfile!.sizeInBytes / 1024).toStringAsFixed(2) + " KB"),
+                  ],
+                )
+              : Text("No file picked")
+        ],
+      ),
     );
   }
 
@@ -47,12 +80,26 @@ class _HomeScreenState extends State<HomeScreen> {
     if (result != null) {
       log(result.files.single.path.toString());
       setState(() {
-        PlatformFile file = result.files.single;
-        this.file = file.bytes!;
+        file = result.files.single;
         picked = true;
       });
     } else {
       // User canceled the picker
     }
+  }
+
+  Future<void> compressImage() async {
+    final input = ImageFile(
+      rawBytes: file!.bytes!,
+      filePath: file!.path!,
+    );
+    final va = await compressInQueue(ImageFileConfiguration(
+        input: input,
+        config: const Configuration(
+          jpgQuality: 10,
+        )));
+    setState(() {
+      cfile = va;
+    });
   }
 }
