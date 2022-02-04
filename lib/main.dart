@@ -1,8 +1,11 @@
+import 'dart:io' as io;
 import 'dart:developer';
 import 'dart:ffi';
+// import 'dart:html';
 import 'dart:typed_data';
 
 import 'package:file_picker/file_picker.dart';
+import 'package:fluent_ui/fluent_ui.dart' as f;
 import 'package:flutter/material.dart';
 import 'package:image_compression/image_compression.dart';
 
@@ -15,7 +18,7 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(debugShowCheckedModeBanner: false, home: HomeScreen());
+    return f.FluentApp(debugShowCheckedModeBanner: false, home: HomeScreen());
   }
 }
 
@@ -30,6 +33,7 @@ class _HomeScreenState extends State<HomeScreen> {
   PlatformFile? file;
   ImageFile? cfile;
   bool picked = false;
+  TextEditingController _controller = TextEditingController(text: '50');
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -40,9 +44,14 @@ class _HomeScreenState extends State<HomeScreen> {
             await pickUpFile();
           }),
           FloatingActionButton(
-              backgroundColor: Colors.green,
+              backgroundColor: Colors.amber,
               onPressed: () async {
                 await compressImage();
+              }),
+          FloatingActionButton(
+              backgroundColor: Colors.green,
+              onPressed: () async {
+                await saveFiletoDesktop();
               }),
         ],
       ),
@@ -57,6 +66,10 @@ class _HomeScreenState extends State<HomeScreen> {
                   ],
                 )
               : Text("No file picked"),
+          f.TextFormBox(
+            controller: _controller,
+            keyboardType: TextInputType.number,
+          ),
           cfile != null
               ? Column(
                   children: [
@@ -71,11 +84,20 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  Future saveFiletoDesktop() async {
+    final saveLocation = await FilePicker.platform.saveFile(
+        type: FileType.image,
+        fileName: '${DateTime.now().millisecondsSinceEpoch}.jpg');
+    print(saveLocation);
+    final io.File file = io.File(saveLocation!);
+    await file.writeAsBytes(cfile!.rawBytes);
+  }
+
   Future<void> pickUpFile() async {
     FilePickerResult? result = await FilePicker.platform.pickFiles(
-        type: FileType.custom,
-        withData: true,
-        allowedExtensions: ['jpg', 'jpeg', 'png', 'gif', 'bmp']);
+      type: FileType.image,
+      withData: true,
+    );
 
     if (result != null) {
       log(result.files.single.path.toString());
@@ -93,10 +115,13 @@ class _HomeScreenState extends State<HomeScreen> {
       rawBytes: file!.bytes!,
       filePath: file!.path!,
     );
+
     final va = await compressInQueue(ImageFileConfiguration(
         input: input,
-        config: const Configuration(
-          jpgQuality: 10,
+        config: Configuration(
+          jpgQuality: _controller.value.text.isNotEmpty
+              ? int.parse(_controller.value.text)
+              : 50,
         )));
     setState(() {
       cfile = va;
